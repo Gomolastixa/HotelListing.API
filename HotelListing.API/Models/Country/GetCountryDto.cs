@@ -10,6 +10,6 @@ namespace HotelListing.API.Models.Country
         public string ShortName { get; set; }
 
 
-        public List<GetHotelsDto> Hotels { get; set; }
+        public List<GetHotelDto> Hotels { get; set; }
     }
 }
