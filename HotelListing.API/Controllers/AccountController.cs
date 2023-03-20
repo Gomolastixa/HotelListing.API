@@ -1,5 +1,6 @@
 ﻿using HotelListing.API.Contracts;
 using HotelListing.API.Models.Users;
+using HotelListing.API.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -40,7 +41,28 @@ namespace HotelListing.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            return Ok();
+            return Ok("User Registered");
+        }
+
+        [HttpPost]
+        [Route("login")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+
+
+        public async Task<ActionResult> Login([FromBody] LoginDto loginDto)
+        {
+            var isValidUser = await _authManager.Login(loginDto);
+
+            if (!isValidUser)
+            {
+                return Unauthorized();
+            }
+
+            return Ok("User is logged in");
+
+
         }
     }
 }

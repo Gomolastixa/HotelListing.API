@@ -16,6 +16,8 @@ namespace HotelListing.API.Services
             _mapper = mapper;
             _userManager = userManager;
         }
+
+
         public async Task<IEnumerable<IdentityError>> Register(ApiUserDto userDto)
         {
             var user = _mapper.Map<ApiUser>(userDto);
@@ -23,12 +25,32 @@ namespace HotelListing.API.Services
 
             var result = await _userManager.CreateAsync(user, userDto.Password);
 
-            if(result.Succeeded) 
+            if (result.Succeeded)
             {
                 await _userManager.AddToRoleAsync(user, "User");
             }
 
             return result.Errors;
+        }
+
+        public async Task<bool> Login(LoginDto loginDto)
+        {
+            bool isValidUser = false;
+            try
+            {
+                var user = await _userManager.FindByEmailAsync(loginDto.Email);
+                if (user == null)
+                {
+                    return default; // Η FindByEmail μπορει να γυρισει null αν το IdentityOptions.User.RequireUniqueEmail δεν ειναι true
+                }
+
+                 isValidUser = await _userManager.CheckPasswordAsync(user, loginDto.Password);
+            }
+            catch (Exception)
+            {
+            }
+
+            return isValidUser;
         }
     }
 }
