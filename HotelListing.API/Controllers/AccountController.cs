@@ -1,6 +1,7 @@
 ﻿using HotelListing.API.Contracts;
 using HotelListing.API.Models.Users;
 using HotelListing.API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -63,6 +64,18 @@ namespace HotelListing.API.Controllers
             return Ok(authResponse);
 
 
+        }
+        [HttpPost]
+        [Route("createAdmin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [Authorize(Roles = "Admin")]        
+        public async Task<ActionResult> CreateAdmin ([FromBody] ApiUserDto apiUserDto)
+        {
+            await _authManager.RegisterAdmin(apiUserDto);
+
+            return Ok("Admin created");
         }
     }
 }

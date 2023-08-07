@@ -1,3 +1,4 @@
+using AspNetCoreRateLimit;
 using HotelListing.API.Configurations;
 using HotelListing.API.Contracts;
 using HotelListing.API.Data;
@@ -7,7 +8,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using RateLimitingDemo.Middleware.RateLimiting;
 using Serilog;
+using System.Configuration;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,6 +46,8 @@ builder.Services.AddScoped<ICountriesRepository, CountriesRepository>();
 builder.Services.AddScoped<IHotelsRepository, HotelsRepository>();
 builder.Services.AddScoped<IAuthManager, AuthManager>();
 
+builder.Services.AddRateLimiting(builder.Configuration);
+
 builder.Services.AddAuthentication(configureOptions => {
     configureOptions.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     configureOptions.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -63,6 +68,8 @@ builder.Services.AddAuthentication(configureOptions => {
 
 var app = builder.Build();
 
+app.UseIpRateLimiting();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -74,8 +81,11 @@ app.UseSerilogRequestLogging();
 
 app.UseHttpsRedirection();
 
+
+
 app.UseCors("AllowAll");
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

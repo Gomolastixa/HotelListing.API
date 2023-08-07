@@ -15,6 +15,11 @@ namespace HotelListing.API.Services
         private readonly IMapper _mapper;
         private readonly UserManager<ApiUser> _userManager;
         private readonly IConfiguration _configuration;
+        private ApiUser _user;
+
+        private const string _loginProvider = "HotelListingApi";
+        private const string _refreshToken = "RefreshToken";
+
 
         public AuthManager(IMapper mapper, UserManager<ApiUser> userManager, IConfiguration
             configuration)
@@ -26,14 +31,30 @@ namespace HotelListing.API.Services
 
         public async Task<IEnumerable<IdentityError>> Register(ApiUserDto userDto)
         {
-            var user = _mapper.Map<ApiUser>(userDto);
-            user.UserName = userDto.Email; // Δεν είχαμε ζητήσει UserName, κανουμε το email
+            _user = _mapper.Map<ApiUser>(userDto);
+            _user.UserName = userDto.Email; // Δεν είχαμε ζητήσει UserName, κανουμε το email
 
-            var result = await _userManager.CreateAsync(user, userDto.Password);
+            var result = await _userManager.CreateAsync(_user, userDto.Password);
 
             if (result.Succeeded)
             {
-                await _userManager.AddToRoleAsync(user, "User");
+                await _userManager.AddToRoleAsync(_user, "User");
+            }
+
+            return result.Errors;
+        }
+
+        public async Task<IEnumerable<IdentityError>> RegisterAdmin(ApiUserDto userDto)
+        {
+            _user = _mapper.Map<ApiUser>(userDto);
+            _user.UserName = userDto.Email;
+
+            var result = await _userManager.CreateAsync(_user, userDto.Password);
+
+            if (result.Succeeded)
+            {
+                await _userManager.AddToRoleAsync(_user, "Admin");
+
             }
 
             return result.Errors;
@@ -41,41 +62,41 @@ namespace HotelListing.API.Services
 
         public async Task<AuthResponseDto> Login(LoginDto loginDto)
         {
-            var user = await _userManager.FindByEmailAsync(loginDto.Email);
-            bool isValidUser = await _userManager.CheckPasswordAsync(user, loginDto.Password);
+            _user = await _userManager.FindByEmailAsync(loginDto.Email);
+            bool isValidUser = await _userManager.CheckPasswordAsync(_user, loginDto.Password);
 
-            if(user == null || !isValidUser)
+            if (_user == null || !isValidUser)
             {
                 return null;
             }
 
-            var token = await GenerateToken(user);
+            var token = await GenerateToken();
             return new AuthResponseDto
             {
                 Token = token,
-                UserId = user.Id
+                UserId = _user.Id
             };
 
 
         }
 
-        private async Task<string> GenerateToken(ApiUser user)
+        private async Task<string> GenerateToken()
         {
             var securitykey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration
                 ["JwtSettings:Key"]));
 
             var credentials = new SigningCredentials(securitykey, SecurityAlgorithms.HmacSha256);
 
-            var roles = await _userManager.GetRolesAsync(user);
+            var roles = await _userManager.GetRolesAsync(_user);
             var roleClaims = roles.Select(x => new Claim(ClaimTypes.Role, x)).ToList();
-            var userClaims = await _userManager.GetClaimsAsync(user);
+            var userClaims = await _userManager.GetClaimsAsync(_user);
 
             var claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Email),
+                new Claim(JwtRegisteredClaimNames.Sub, _user.Email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim("uid", user.Id)
+                new Claim(JwtRegisteredClaimNames.Email, _user.Email),
+                new Claim("uid", _user.Id)
             }.Union(userClaims).Union(roleClaims);
 
             var token = new JwtSecurityToken(
@@ -88,6 +109,20 @@ namespace HotelListing.API.Services
                 );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        public async Task<string> CreateRefreshToken()
+        {
+            await _userManager.RemoveAuthenticationTokenAsync(_user, _loginProvider, _refreshToken);
+            var newRefreshToken = await _userManager.GenerateUserTokenAsync (_user, _loginProvider, _refreshToken);
+            var result = await _userManager.SetAuthenticationTokenAsync(_user, _loginProvider, _refreshToken, newRefreshToken);
+
+            return newRefreshToken;
+        }
+
+        public Task<AuthResponseDto> VerifyToken(AuthResponseDto request)
+        {
+            return null;
         }
     }
 }
